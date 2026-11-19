@@ -1,65 +1,131 @@
 # Rate Store
 
-Rate Store is a store rating and review app built for the Full Stack Intern coding challenge. It uses one sign-in system for three roles: system administrator, normal user (customer), and store owner. Each role sees the pages and actions for its work.
+## Project overview
 
-The frontend is React, the API is Express.js, and MySQL stores accounts, stores, ratings, reviews, and login sessions. Passwords are hashed with bcrypt.
+Rate Store is a web app for finding stores and sharing ratings and reviews. It has one login system for three roles: System Administrator, Normal User, and Store Owner. After signing in, each person gets the pages and actions for their role.
 
-## What the app does
+Customers can search the store list and leave a rating and review. Store owners can see feedback for their store. The administrator manages accounts and stores and can see totals for the whole platform.
 
-### System administrator
+## Tech stack
 
-The dashboard shows the number of users, stores, and submitted ratings. Admins can add, edit, and delete accounts and stores. Creating a store owner also creates the owner's store. The users list shows name, email, address, and role, with the store rating for owners. The stores list shows the store name, owner, email, address, and overall rating. Both lists support filtering and sorting.
+- **Frontend:** React.js and Vite
+- **Backend:** Node.js and Express.js
+- **Database:** MySQL with Sequelize
+- **Authentication:** Express sessions stored in MySQL
+- **Password hashing:** bcrypt
 
-### Normal user
+## User roles and permissions
 
-Customers can register and sign in, change their password, search stores by name or address, and see both the overall rating and their own rating. They can submit or update a rating and review. Ratings use half-star steps from 0.5 to 5; a review can include a JPG, PNG, or WebP image up to 5 MB.
+### System Administrator
 
-Public registration asks for a name, email, password, and password confirmation. It creates a customer account only. Admins create administrator and store owner accounts.
+- View the total number of users, stores, and submitted ratings.
+- Add, edit, and delete users and stores, including admin accounts.
+- Create a store owner with a temporary password and add the owner's store details in the same form.
+- View users by name, email, address, and role. Store owners also show their store's average rating.
+- View stores by store name, owner name, store email, address, and overall rating.
+- Filter and sort user and store lists.
+- Change their password and sign out.
 
-### Store owner
+### Normal User
 
-Store owners can sign in, change their password, see their store's average rating, and view the customers who submitted ratings and reviews.
+- Register and sign in through the shared login system.
+- Search stores by name or address.
+- See the store's overall rating and their own submitted rating.
+- Submit a rating or change their existing rating.
+- Add a written review and optional image to a rating.
+- Change their password and sign out.
 
-All roles can sign out. Access to role-specific actions is checked by the API as well as the interface.
+Public registration creates Normal User accounts only. Its fields are name, email, password, and password confirmation. Admins create administrator and Store Owner accounts.
 
-## Run locally
+### Store Owner
 
-Install Node.js LTS, npm, and MySQL Server. Clone this repository and open a terminal in the project folder:
+- Sign in and change their password.
+- See their store's average rating.
+- View the customers who rated their store, with their ratings and reviews.
+- Sign out.
+
+## Key features
+
+- One role-based login system with server-side access checks.
+- Admin dashboard totals and account/store management.
+- Search and filters on the user and store lists, with ascending/descending sorting on all data tables.
+- Half-star ratings from 0.5 to 5, with the same rating colors throughout the app.
+- Editable reviews with optional JPG, PNG, or WebP images, up to 5 MB.
+- MySQL relationships keep users, stores, ratings, and sessions organized. See [docs/database.md](docs/database.md).
+
+## Form validation
+
+- **User name:** 1–60 characters.
+- **Store name:** 20–60 characters.
+- **Address:** Up to 400 characters.
+- **Password:** 8–16 characters, including at least one uppercase letter and one special character.
+- **Email:** Must use a valid email format.
+
+The public signup form does not ask for an address. Admin-created user accounts and stores include an address; an owner's address is their store address.
+
+## Demo accounts
+
+On a new database, the app creates this administrator the first time the API starts:
+
+- **Email:** `storeappadmin@gmail.com`
+- **Password:** `Appadmin@123`
+
+To create sample customer and owner accounts, run `npm.cmd run seed:samples` from the project folder. The sample password is `Sample@123`.
+
+- **Customer:** `sample.user01@example.test`
+- **Store Owner:** `sample.owner01@example.test`
+
+The sample accounts are available only after running the seed command. If the admin account already exists in your database, use its current password.
+
+## Setup instructions
+
+### 1. Install the requirements
+
+Install Node.js LTS, npm, and MySQL Server. Start MySQL before launching the app.
+
+### 2. Get the project
 
 ```sh
 git clone https://github.com/mopurudinesh/Store-Rating-App.git
 cd Store-Rating-App
 ```
 
-In MySQL Workbench, run [`backend/sql/schema.sql`](backend/sql/schema.sql) to create the `store_rating` database and its tables.
+### 3. Create the database
 
-Create the local backend settings file and enter your MySQL password as `DB_PASSWORD`:
+Open `backend/sql/schema.sql` in MySQL Workbench and run it. This creates the `store_rating` database and its tables.
+
+### 4. Add your MySQL password
+
+In Windows PowerShell, run:
 
 ```powershell
 Copy-Item backend\.env.example backend\.env
 notepad backend\.env
 ```
 
-Install the dependencies and start the app from the project folder:
+Set `DB_PASSWORD` to your MySQL password, then save and close Notepad. The default connection uses `127.0.0.1`, port `3306`, database `store_rating`, and user `root`.
+
+### 5. Install and start the app
+
+From the project folder in PowerShell, run:
 
 ```powershell
 npm.cmd run install:all
 npm.cmd run dev
 ```
 
-Open [http://localhost:5173](http://localhost:5173). The API runs at `http://localhost:4000`. Leave the terminal open while using the app; press `Ctrl+C` to stop it. If PowerShell blocks `npm.ps1`, use `npm.cmd` as shown. On macOS or Linux, copy the env file with `cp backend/.env.example backend/.env` and use `npm` instead of `npm.cmd`.
+Open **http://localhost:5173**. The API runs at **http://localhost:4000**. Keep the terminal open while using the app; press `Ctrl+C` to stop it. If PowerShell blocks `npm.ps1`, use `npm.cmd` as shown.
 
-## Accounts
+On macOS or Linux, copy the settings file with `cp backend/.env.example backend/.env`, edit `backend/.env`, then use `npm` instead of `npm.cmd` for the install and start commands.
 
-On a new database, the first start creates the admin account:
+## API routes
 
-- Email: `storeappadmin@gmail.com`
-- Password: `Appadmin@123`
+All routes start with `/api`.
 
-It only creates this account if the email is not already in the database. For sample customers and store owners, run `npm.cmd run seed:samples` from the project folder. Sample accounts use `Sample@123`; examples are `sample.user01@example.test` and `sample.owner01@example.test`.
+- **Authentication:** `POST /auth/register`, `POST /auth/login`, `GET /auth/me`, `POST /auth/logout`, `PUT /auth/password`.
+- **Customer stores and ratings:** `GET /stores`, `PUT /stores/:id/rating` (submit or update a rating).
+- **Administrator:** `GET /admin/summary`; `GET` and `POST /admin/users`; `PUT` and `DELETE /admin/users/:id`; the same list, add, edit, and delete methods for `/admin/stores`.
+- **Store Owner:** `GET /owner/dashboard`.
+- **Database health:** `GET /health`.
 
-## Validation
-
-User names can be 1–60 characters; store names must be 20–60. Addresses are limited to 400 characters. Emails must use a valid email format. Passwords must be 8–16 characters and include an uppercase letter and a special character.
-
-The `frontend/` and `backend/` folders each have a README with details about that part of the app. The database relationships are described in [`docs/database.md`](docs/database.md).
+The [frontend README](frontend/README.md) describes the pages and frontend commands. The [backend README](backend/README.md) covers the API and database implementation.
