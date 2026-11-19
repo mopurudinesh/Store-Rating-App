@@ -122,4 +122,4 @@ All routes start with `/api`.
 - **Store Owner:** `GET /owner/dashboard`.
 - **Health check:** `GET /health`.
 
-See [frontend/README.md](frontend/README.md) for frontend details, [backend/README.md](backend/README.md) for the API, and [docs/database.md](docs/database.md) for the database structure.
+See [frontend/README.md](frontend/README.md) for frontend details and [backend/README.md](backend/README.md) for the API and database structure.

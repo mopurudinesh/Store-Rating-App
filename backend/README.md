@@ -13,7 +13,7 @@ The main tables are:
 - `ratings` — one rating and review per customer for each store; image paths are optional.
 - `sessions` — sign-in sessions, managed by `connect-session-sequelize`.
 
-The store owner link is optional, and each owner can be linked to at most one store. Ratings use half-star steps from 0.5 to 5. See [`sql/schema.sql`](sql/schema.sql) and [`../docs/database.md`](../docs/database.md) for the schema.
+The store owner link is optional, and each owner can be linked to at most one store. Ratings use half-star steps from 0.5 to 5. See [`sql/schema.sql`](sql/schema.sql) for the schema.
 
 ## Run the API
 
