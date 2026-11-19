@@ -1,17 +1,26 @@
 # Rate Store
 
-Rate Store lets customers find stores and submit ratings and reviews. Administrators manage accounts and store listings. Store owners can see ratings and reviews for their store.
+Rate Store is a store rating and review app built for the Full Stack Intern coding challenge. It uses one sign-in system for three roles: system administrator, normal user (customer), and store owner. Each role sees the pages and actions for its work.
 
-Built with React, Express, and MySQL. Passwords are hashed with bcrypt, and login sessions are stored in MySQL.
+The frontend is React, the API is Express.js, and MySQL stores accounts, stores, ratings, reviews, and login sessions. Passwords are hashed with bcrypt.
 
-## Features
+## What the app does
 
-- Customers can register, search stores by name or address, and add or update a rating and review.
-- Ratings range from 0.5 to 5 in half-star steps. Reviews can include a JPG, PNG, or WebP image up to 5 MB.
-- Store owners can view their store's average rating and submitted reviews.
-- Administrators can manage users and stores, see platform totals, and sort or filter lists.
+### System administrator
 
-Only customers can register themselves. Admins create other admin accounts and store owners. Adding a store owner also adds their store.
+The dashboard shows the number of users, stores, and submitted ratings. Admins can add, edit, and delete accounts and stores. Creating a store owner also creates the owner's store. The users list shows name, email, address, and role, with the store rating for owners. The stores list shows the store name, owner, email, address, and overall rating. Both lists support filtering and sorting.
+
+### Normal user
+
+Customers can register and sign in, change their password, search stores by name or address, and see both the overall rating and their own rating. They can submit or update a rating and review. Ratings use half-star steps from 0.5 to 5; a review can include a JPG, PNG, or WebP image up to 5 MB.
+
+Public registration asks for a name, email, password, and password confirmation. It creates a customer account only. Admins create administrator and store owner accounts.
+
+### Store owner
+
+Store owners can sign in, change their password, see their store's average rating, and view the customers who submitted ratings and reviews.
+
+All roles can sign out. Access to role-specific actions is checked by the API as well as the interface.
 
 ## Run locally
 
@@ -51,6 +60,6 @@ It only creates this account if the email is not already in the database. For sa
 
 ## Validation
 
-User names can be 1–60 characters; store names must be 20–60. Addresses are limited to 400 characters. Passwords must be 8–16 characters and include an uppercase letter and a special character.
+User names can be 1–60 characters; store names must be 20–60. Addresses are limited to 400 characters. Emails must use a valid email format. Passwords must be 8–16 characters and include an uppercase letter and a special character.
 
 The `frontend/` and `backend/` folders each have a README with details about that part of the app. The database relationships are described in [`docs/database.md`](docs/database.md).
