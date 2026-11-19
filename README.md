@@ -1,105 +1,142 @@
 # Rate Store
 
-A store rating and review app with role-based access for administrators, customers, and store owners. Customers can discover stores, leave half-star ratings and reviews, and update their submissions. Administrators manage accounts and stores; owners see the feedback for their store.
+Rate Store is a full-stack app for discovering stores and sharing ratings and reviews. It has one sign-in system, with different pages and permissions for administrators, customers, and store owners.
 
-## Project overview
+## What it does
 
-- One sign-in flow with role-based permissions
-- Store search, listing filters, and ascending/descending sorting
-- Admin dashboards and management for users, owners, and stores
-- Store owner dashboard with average rating and customer reviews
-- Bcrypt password hashing and MySQL-backed login sessions
-- Written reviews and optional JPG, PNG, or WebP photos
+- Customers can search stores by name or address, sort listings, and submit or edit a rating and review.
+- Ratings use half-star steps from 0.5 to 5. Reviews can include a JPG, PNG, or WebP image up to 5 MB.
+- Store owners can see their store's average rating and the customers who reviewed it.
+- Administrators can see platform totals, create and manage accounts and stores, and sort or filter listings.
+- Passwords are hashed with bcrypt. Login sessions are stored in MySQL.
 
-## Tech stack
+## Roles
 
-- **Frontend:** React and Vite
-- **Backend:** Express.js
-- **Database:** MySQL with Sequelize
+| Role | Main capabilities |
+| --- | --- |
+| **Administrator** | View user, store, and rating totals; add, edit, and delete users and stores; filter and sort listings; view store owner ratings. Creating a store owner also creates their store. |
+| **Customer** | Register, browse and search stores, submit or edit a rating and review, and update their password. |
+| **Store owner** | Sign in, update their password, view their store's average rating, and see submitted reviews. |
 
-## Roles and access
+Public registration creates customer accounts only. Administrators create administrator and store owner accounts.
 
-### System administrator
-
-The administrator dashboard shows total users, stores, and ratings. Admins can create, view, edit, and delete users and stores; filter and sort listings; and view store owner ratings. A store owner is created together with their store.
-
-### Normal user
-
-Users can register, sign in, update their password, search stores by name or address, and submit or edit ratings and reviews. Public signup asks for a name, email, password, and password confirmation. Only an administrator can create admin or store owner accounts.
-
-### Store owner
-
-Owners can sign in, update their password, see their store's average rating, and view the customers who submitted reviews.
-
-## Local administrator account
-
-On a new database, the first API start creates this administrator:
-
-- **Email:** `storeappadmin@gmail.com`
-- **Password:** `Appadmin@123`
-
-These are the defaults in `backend/.env.example`. They only seed an account when that email does not already exist. Change the password before deploying the app beyond a local evaluation.
-
-To add optional sample accounts, run `npm.cmd run seed:samples` from the project root. This creates 40 customers, 20 store owners, and their stores. All sample accounts use `Sample@123`; examples are `sample.user01@example.test` and `sample.owner01@example.test`.
-
-## Validation and ratings
+## Validation
 
 - **User name:** 1–60 characters
 - **Store name:** 20–60 characters
 - **Address:** Up to 400 characters
-- **Password:** 8–16 characters, with at least one uppercase letter and one special character
+- **Password:** 8–16 characters, including at least one uppercase letter and one special character
 - **Email:** Standard email format
-- **Rating:** 0.5–5 in half-star steps
-- **Review photo:** JPG, PNG, or WebP, up to 5 MB
 
-Tables can be sorted ascending or descending by relevant fields. Listings also have role-appropriate search and filters. The normalized schema and relationships are described in [docs/database.md](docs/database.md).
+## Technology
 
-## Setup on Windows
+- **Frontend:** React, React Router, and Vite
+- **Backend:** Node.js and Express
+- **Database:** MySQL and Sequelize
 
-Install Node.js LTS and MySQL Server. Create a database named `store_rating` in MySQL Workbench, or run `backend/sql/schema.sql` there. The API creates the application tables when it starts.
+## Install and run
 
-Open PowerShell in the project folder and run:
+### Requirements
+
+- Node.js LTS and npm
+- MySQL Server running locally or reachable on your network
+- MySQL Workbench if you want to initialize the database with a graphical tool
+
+### 1. Get the project
+
+```text
+https://github.com/mopurudinesh/Store-Rating-App
+```
+
+Clone it, then open a terminal in the `Store-Rating-App` folder.
+
+```powershell
+git clone https://github.com/mopurudinesh/Store-Rating-App.git
+Set-Location Store-Rating-App
+```
+
+### 2. Create the database
+
+In MySQL Workbench, open and run [`backend/sql/schema.sql`](backend/sql/schema.sql). This creates the `store_rating` database and its application tables. The MySQL account in the app settings needs permission to use the database and create or update tables.
+
+### 3. Set the connection details
+
+In Windows PowerShell, create the local environment file and open it:
 
 ```powershell
 Copy-Item backend\.env.example backend\.env
 notepad backend\.env
+```
+
+Set `DB_PASSWORD` to the password for your MySQL account. The defaults use host `127.0.0.1`, port `3306`, database `store_rating`, and user `root`. Save and close Notepad.
+
+On macOS or Linux, use `cp backend/.env.example backend/.env` and edit `backend/.env` with your preferred text editor.
+
+### 4. Install dependencies
+
+In PowerShell, run:
+
+```powershell
 npm.cmd run install:all
+```
+
+On macOS or Linux, run `npm run install:all`.
+
+### 5. Start the app
+
+In PowerShell, run:
+
+```powershell
 npm.cmd run dev
 ```
 
-In `backend/.env`, set `DB_PASSWORD` to your MySQL password. The default connection uses `127.0.0.1:3306`. Save and close Notepad before starting the app. `npm.cmd` avoids PowerShell's script execution policy issue with `npm.ps1`.
+On macOS or Linux, run `npm run dev`. Leave this terminal open while using the app. Press `Ctrl+C` there to stop both servers.
 
-Open the website at **http://localhost:5173**. The API runs at **http://localhost:4000**. If port 5173 is already in use, Vite prints the alternate website address. Keep PowerShell open while using the app; press `Ctrl+C` in that window to stop it.
+Open **http://localhost:5173** in your browser. The API runs at **http://localhost:4000**. If port 5173 is already occupied, Vite prints the alternate address it selected.
 
-## API routes
+## First login
 
-All routes use the `/api` prefix. Protected routes use the signed-in session and enforce the user's role.
+On a new database, the first API start creates the administrator account from `ADMIN_EMAIL` and `ADMIN_PASSWORD` in `backend/.env`. The example defaults are:
 
-### Authentication
+- **Email:** `storeappadmin@gmail.com`
+- **Password:** `Appadmin@123`
 
-- `POST /api/auth/register` — register a normal user
-- `POST /api/auth/login` — sign in
-- `GET /api/auth/me` — get the current session
-- `POST /api/auth/logout` — sign out
-- `PUT /api/auth/password` — change password
+The administrator is only created if that email does not already exist. For an existing database, use the password already assigned to that account.
 
-### Stores and ratings
+To create optional sample data, run `npm.cmd run seed:samples` from PowerShell at the project root (`npm run seed:samples` on macOS or Linux). This adds 40 customers, 20 store owners, and their stores. All sample accounts use `Sample@123`; for example, `sample.user01@example.test` and `sample.owner01@example.test`.
 
-- `GET /api/stores` — list and search stores (normal users)
-- `PUT /api/stores/:id/rating` — submit or update a rating and review (normal users)
+## Helpful commands
 
-### Administrator
+| Command | Run from | What it does |
+| --- | --- | --- |
+| `npm.cmd run dev` | Project root | Start frontend and backend together |
+| `npm.cmd run install:all` | Project root | Install all project dependencies |
+| `npm.cmd run seed:samples` | Project root | Add optional sample accounts and stores |
+| `npm.cmd run build` | `frontend/` | Build the frontend for production |
+| `npm.cmd start` | `backend/` | Start the API without the development watcher |
 
-- `GET /api/admin/summary` — dashboard counts
-- `GET`, `POST /api/admin/users` — list or create users
-- `PUT`, `DELETE /api/admin/users/:id` — edit or delete a user
-- `GET`, `POST /api/admin/stores` — list or create stores
-- `PUT`, `DELETE /api/admin/stores/:id` — edit or delete a store
+For macOS and Linux, use `npm` in place of `npm.cmd`.
 
-### Store owner
+## Troubleshooting
 
-- `GET /api/owner/dashboard` — store average and customer reviews
+- **`npm.ps1` is blocked in PowerShell:** Run the documented commands with `npm.cmd`.
+- **API reports a MySQL connection error:** Start MySQL Server and check `DB_HOST`, `DB_PORT`, `DB_USER`, `DB_PASSWORD`, and `DB_NAME` in `backend/.env`.
+- **The browser cannot reach the API:** Keep both development servers running in the terminal and check `http://localhost:4000/api/health`.
+- **Port 5173 is in use:** Open the alternate local URL printed by Vite, or stop the other process using that port and restart the app.
 
-### Health
+## Project layout
 
-- `GET /api/health` — check API and database availability
+```text
+Store-Rating-App/
+├── backend/       # Express API, MySQL models, schema, and backend guide
+├── frontend/      # React app, Vite config, and frontend guide
+├── docs/          # Database relationship notes
+├── package.json   # Root development and setup commands
+└── README.md      # Project overview and installation guide
+```
+
+The backend architecture and request flow are documented in [`backend/README.md`](backend/README.md). Frontend routes and development details are in [`frontend/README.md`](frontend/README.md).
+
+## Security notes
+
+Do not commit `backend/.env` or files from `backend/uploads/`; both are ignored by Git. Change the default administrator password and set a unique `SESSION_SECRET` of at least 32 characters before deploying beyond local evaluation. The sample password is for local demonstration only.
