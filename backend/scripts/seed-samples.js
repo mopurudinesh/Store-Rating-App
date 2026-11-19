@@ -55,7 +55,6 @@ try {
       if (!store) {
         await Store.create({
           name: `Sample Market and Shop ${number}`,
-          email: `sample.store${number}@example.test`,
           address: `Sample store address ${number}, Example City`,
           ownerId: owner.id
         }, { transaction });
@@ -64,11 +63,12 @@ try {
     }
   });
 
-  const [customerCount, ownerCount, storeCount] = await Promise.all([
+  const [customerCount, ownerCount] = await Promise.all([
     User.count({ where: { email: { [Op.in]: customerEmails } } }),
-    User.count({ where: { email: { [Op.in]: ownerEmails }, role: 'owner' } }),
-    Store.count({ where: { email: { [Op.like]: 'sample.store%@example.test' } } })
+    User.count({ where: { email: { [Op.in]: ownerEmails }, role: 'owner' } })
   ]);
+  const sampleOwners = await User.findAll({ attributes: ['id'], where: { email: { [Op.in]: ownerEmails }, role: 'owner' }, raw: true });
+  const storeCount = await Store.count({ where: { ownerId: { [Op.in]: sampleOwners.map(owner => owner.id) } } });
   console.log(`Sample data ready: ${customerCount} customers, ${ownerCount} store owners, ${storeCount} sample stores.`);
   console.log(`Created this run: ${createdCustomers} customers, ${createdOwners} owners, ${createdStores} stores.`);
   console.log(`Shared sample password: ${samplePassword}`);

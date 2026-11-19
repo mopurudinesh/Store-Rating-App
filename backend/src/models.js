@@ -46,17 +46,13 @@ export const Store = sequelize.define('stores', {
     type: DataTypes.STRING(60),
     allowNull: false
   },
-  email: {
-    type: DataTypes.STRING(254),
-    allowNull: false
-  },
   address: {
     type: DataTypes.STRING(400),
     allowNull: false
   },
   ownerId: {
     type: DataTypes.BIGINT.UNSIGNED,
-    allowNull: true,
+    allowNull: false,
     unique: true,
     field: 'owner_id'
   }
@@ -109,8 +105,8 @@ export const Rating = sequelize.define('ratings', {
 });
 
 // Relationships: a user can own one store and submit ratings for many stores.
-User.hasOne(Store, { foreignKey: 'ownerId', as: 'store' });
-Store.belongsTo(User, { foreignKey: 'ownerId', as: 'owner' });
+User.hasOne(Store, { foreignKey: 'ownerId', as: 'store', onDelete: 'CASCADE' });
+Store.belongsTo(User, { foreignKey: 'ownerId', as: 'owner', onDelete: 'CASCADE' });
 
 User.hasMany(Rating, { foreignKey: 'userId', as: 'ratings' });
 Rating.belongsTo(User, { foreignKey: 'userId', as: 'user' });

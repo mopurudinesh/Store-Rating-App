@@ -12,7 +12,7 @@ import { fileURLToPath } from 'node:url';
 import { DataTypes, Op, fn, col, literal } from 'sequelize';
 import { sequelize } from './db.js';
 import { User, Store, Rating } from './models.js';
-import { accountRules, accountUpdateRules, registrationRules, storeRules, storeUpdateRules, checkValidation } from './validation.js';
+import { accountRules, accountUpdateRules, ownerStoreUpdateRules, registrationRules, storeUpdateRules, checkValidation } from './validation.js';
 
 const app = express();
 const uploadDirectory = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../uploads');
@@ -57,6 +57,8 @@ const storeRatingOrder = (sort, direction, userId) => sort === 'rating'
   ? [[literal('(SELECT AVG(r.rating_value) FROM ratings AS r WHERE r.store_id = stores.id)'), direction]]
   : sort === 'userRating'
     ? [[literal(`(SELECT ur.rating_value FROM ratings AS ur WHERE ur.store_id = stores.id AND ur.user_id = ${Number(userId)})`), direction]]
+    : sort === 'email'
+      ? [[{ model: User, as: 'owner' }, 'email', direction]]
     : sort === 'created'
       ? [[literal('stores.created_at'), direction]]
       : [[sort, direction]];
@@ -122,6 +124,61 @@ app.put('/api/auth/password', requireAuth, async (req, res, next) => {
     user.passwordHash = await bcrypt.hash(password, 12); await user.save(); res.json({ message: 'Password updated.' });
   } catch (e) { next(e); }
 });
+app.put('/api/owner/profile', requireAuth, requireRole('owner'), ownerStoreUpdateRules, checkValidation, async (req, res, next) => {
+  let transaction;
+  try {
+    transaction = await sequelize.transaction();
+    const user = await User.findByPk(req.session.user.id, { transaction });
+    const store = user && await Store.findOne({ where: { ownerId: user.id }, transaction });
+    if (!user || !store) {
+      await transaction.rollback();
+      return res.status(409).json({ message: 'This owner account is not linked to a store.' });
+    }
+    user.name = req.body.name.trim();
+    user.email = req.body.email;
+    user.address = req.body.address.trim();
+    store.name = req.body.storeName.trim();
+    store.address = user.address;
+    await user.save({ transaction });
+    await store.save({ transaction });
+    await transaction.commit();
+    req.session.user = safeUser(user);
+    await new Promise((resolve, reject) => req.session.save(error => error ? reject(error) : resolve()));
+    res.json({ user: req.session.user, store: { id: store.id, name: store.name, address: store.address } });
+  } catch (e) {
+    if (transaction) await transaction.rollback().catch(() => {});
+    if (e.name === 'SequelizeUniqueConstraintError') return res.status(409).json({ message: 'An account with that email already exists.' });
+    next(e);
+  }
+});
+app.delete('/api/owner/store', requireAuth, requireRole('owner'), async (req, res, next) => {
+  let transaction;
+  let removedImages = [];
+  try {
+    transaction = await sequelize.transaction();
+    const owner = await User.findByPk(req.session.user.id, { transaction });
+    const store = owner && await Store.findOne({ where: { ownerId: owner.id }, transaction });
+    if (!owner || !store) {
+      await transaction.rollback();
+      return res.status(409).json({ message: 'This owner account is not linked to a store.' });
+    }
+    const ratings = await Rating.findAll({ attributes: ['imagePath'], where: { [Op.or]: [{ storeId: store.id }, { userId: owner.id }] }, transaction });
+    removedImages = ratings.map(rating => rating.imagePath).filter(Boolean);
+    await Rating.destroy({ where: { [Op.or]: [{ storeId: store.id }, { userId: owner.id }] }, transaction });
+    await revokeUserSessions(owner.id, transaction);
+    await owner.destroy({ transaction });
+    await transaction.commit();
+    await Promise.all(removedImages.map(removeStoredImage));
+    req.session.destroy(error => {
+      if (error) return next(error);
+      res.clearCookie('store.sid');
+      res.json({ message: 'Store, owner account, and ratings deleted.' });
+    });
+  } catch (e) {
+    if (transaction) await transaction.rollback().catch(() => {});
+    next(e);
+  }
+});
 
 app.get('/api/stores', requireAuth, requireRole('user'), async (req, res, next) => {
   try {
@@ -142,14 +199,18 @@ app.get('/api/stores', requireAuth, requireRole('user'), async (req, res, next) 
     }
     const sort = ['name', 'address', 'email', 'rating', 'userRating', 'created'].includes(req.query.sort) ? req.query.sort : 'name';
     const direction = req.query.direction === 'desc' ? 'DESC' : 'ASC';
-    const { count, rows } = await Store.findAndCountAll({ where, limit, offset, order: storeRatingOrder(sort, direction, req.session.user.id) });
+    const { count, rows } = await Store.findAndCountAll({
+      where, limit, offset,
+      order: storeRatingOrder(sort, direction, req.session.user.id),
+      include: [{ model: User, as: 'owner', attributes: ['email'], required: true }]
+    });
     const aggregate = await Rating.findAll({ attributes: ['storeId', [fn('AVG', col('rating_value')), 'averageRating']], group: ['storeId'], raw: true });
     const averages = new Map(aggregate.map(row => [String(row.storeId), Number(row.averageRating)]));
     const own = req.session.user.role === 'user' ? await Rating.findAll({ where: { userId: req.session.user.id }, raw: true }) : [];
     const ownMap = new Map(own.map(row => [String(row.storeId), { score: Number(row.score), review: row.review || '', imagePath: row.imagePath || null }]));
     res.json({ stores: rows.map(s => {
       const ownRating = ownMap.get(String(s.id));
-      return { id: s.id, name: s.name, email: s.email, address: s.address, averageRating: averages.get(String(s.id)) || 0, userRating: ownRating?.score ?? null, userReview: ownRating?.review || '', userImageUrl: ownRating?.imagePath || null };
+      return { id: s.id, name: s.name, email: s.owner.email, address: s.address, averageRating: averages.get(String(s.id)) || 0, userRating: ownRating?.score ?? null, userReview: ownRating?.review || '', userImageUrl: ownRating?.imagePath || null };
     }), total: count, limit, offset });
   } catch (e) { next(e); }
 });
@@ -213,7 +274,7 @@ app.post('/api/admin/users', requireAuth, requireRole('admin'), accountRules, ch
     const address = role === 'owner' ? req.body.storeAddress.trim() : req.body.address.trim();
     const user = await User.create({ name: req.body.name.trim(), email: req.body.email, address, passwordHash: await bcrypt.hash(req.body.password, 12), role }, { transaction });
     if (role === 'owner') {
-      await Store.create({ name: req.body.storeName.trim(), email: user.email, address, ownerId: user.id }, { transaction });
+      await Store.create({ name: req.body.storeName.trim(), address, ownerId: user.id }, { transaction });
     }
     await transaction.commit();
     res.status(201).json({ user: safeUser(user) });
@@ -229,7 +290,7 @@ app.put('/api/admin/users/:id', requireAuth, requireRole('admin'), accountUpdate
     transaction = await sequelize.transaction();
     const user = await User.findByPk(req.params.id, { transaction });
     if (!user) { await transaction.rollback(); return res.status(404).json({ message: 'User not found.' }); }
-    const oldEmail = user.email;
+    if (user.role === 'user') { await transaction.rollback(); return res.status(403).json({ message: 'Customer accounts cannot be edited from user management.' }); }
     user.name = req.body.name.trim();
     user.email = req.body.email;
     user.address = req.body.address.trim();
@@ -239,7 +300,6 @@ app.put('/api/admin/users/:id', requireAuth, requireRole('admin'), accountUpdate
       const store = await Store.findOne({ where: { ownerId: user.id }, transaction });
       if (store) {
         store.address = user.address;
-        if (store.email === oldEmail) store.email = user.email;
         await store.save({ transaction });
       }
     }
@@ -264,6 +324,7 @@ app.delete('/api/admin/users/:id', requireAuth, requireRole('admin'), async (req
     transaction = await sequelize.transaction();
     const user = await User.findByPk(req.params.id, { transaction });
     if (!user) { await transaction.rollback(); return res.status(404).json({ message: 'User not found.' }); }
+    if (user.role === 'user') { await transaction.rollback(); return res.status(403).json({ message: 'Customer accounts cannot be deleted from user management.' }); }
     if (Number(user.id) === Number(req.session.user.id)) { await transaction.rollback(); return res.status(409).json({ message: 'You cannot delete the account you are currently using.' }); }
     if (user.role === 'admin' && await User.count({ where: { role: 'admin' }, transaction }) <= 1) {
       await transaction.rollback(); return res.status(409).json({ message: 'The last administrator account cannot be deleted.' });
@@ -287,29 +348,22 @@ app.delete('/api/admin/users/:id', requireAuth, requireRole('admin'), async (req
 app.get('/api/admin/stores', requireAuth, requireRole('admin'), async (req, res, next) => {
   try {
     const { limit, offset } = pageArgs(req); const where = {};
-    addFilters(where, req.query, ['name', 'email', 'address']);
-    const ownerFilter = req.query.ownerName ? { name: nameWhere(req.query.ownerName) } : undefined;
-    if (req.query.owner === 'assigned') where.ownerId = { [Op.not]: null };
-    if (req.query.owner === 'unassigned') where.ownerId = null;
+    addFilters(where, req.query, ['name', 'address']);
+    const ownerFilter = {};
+    if (req.query.ownerName) ownerFilter.name = nameWhere(req.query.ownerName);
+    if (req.query.email) ownerFilter.email = nameWhere(req.query.email);
     const minRating = ratingFilterValue(req.query.minRating);
     if (minRating != null) addAndFilter(where, literal(`(SELECT AVG(r.rating_value) FROM ratings AS r WHERE r.store_id = stores.id) >= ${minRating}`));
     const sort = ['name', 'ownerName', 'email', 'address', 'rating', 'created'].includes(req.query.sort) ? req.query.sort : 'name'; const direction = req.query.direction === 'desc' ? 'DESC' : 'ASC';
     const result = await Store.findAndCountAll({
       where, limit, offset,
       order: sort === 'ownerName' ? [[{ model: User, as: 'owner' }, 'name', direction]] : storeRatingOrder(sort, direction),
-      attributes: ['id', 'name', 'email', 'address', 'ownerId'],
-      include: [{ model: User, as: 'owner', attributes: ['id', 'name', 'email'], required: Boolean(ownerFilter), ...(ownerFilter ? { where: ownerFilter } : {}) }]
+      attributes: ['id', 'name', 'address', 'ownerId'],
+      include: [{ model: User, as: 'owner', attributes: ['id', 'name', 'email'], required: true, ...(Object.keys(ownerFilter).length ? { where: ownerFilter } : {}) }]
     });
     const ratings = await Rating.findAll({ attributes: ['storeId', [fn('AVG', col('rating_value')), 'averageRating']], group: ['storeId'], raw: true }); const avg = new Map(ratings.map(r => [String(r.storeId), Number(r.averageRating)]));
-    res.json({ stores: result.rows.map(s => ({ ...s.toJSON(), ownerName: s.owner?.name || null, ownerEmail: s.owner?.email || null, averageRating: avg.get(String(s.id)) || 0 })), total: result.count, limit, offset });
+    res.json({ stores: result.rows.map(s => ({ ...s.toJSON(), email: s.owner.email, ownerName: s.owner.name, averageRating: avg.get(String(s.id)) || 0 })), total: result.count, limit, offset });
   } catch (e) { next(e); }
-});
-app.post('/api/admin/stores', requireAuth, requireRole('admin'), storeRules, checkValidation, async (req, res, next) => {
-  try {
-    let ownerId = null;
-    if (req.body.ownerEmail) { const owner = await User.findOne({ where: { email: String(req.body.ownerEmail).trim().toLowerCase(), role: 'owner' } }); if (!owner) return res.status(422).json({ message: 'Create a store owner account first, then enter their email.' }); ownerId = owner.id; }
-    const store = await Store.create({ name: req.body.name.trim(), email: req.body.email, address: req.body.address.trim(), ownerId }); res.status(201).json({ store });
-  } catch (e) { if (e.name === 'SequelizeUniqueConstraintError') return res.status(409).json({ message: 'This owner already has a store.' }); next(e); }
 });
 app.put('/api/admin/stores/:id', requireAuth, requireRole('admin'), storeUpdateRules, checkValidation, async (req, res, next) => {
   let transaction;
@@ -317,25 +371,17 @@ app.put('/api/admin/stores/:id', requireAuth, requireRole('admin'), storeUpdateR
     transaction = await sequelize.transaction();
     const store = await Store.findByPk(req.params.id, { transaction });
     if (!store) { await transaction.rollback(); return res.status(404).json({ message: 'Store not found.' }); }
-    let owner = null;
-    const ownerEmail = String(req.body.ownerEmail || '').trim().toLowerCase();
-    if (ownerEmail) {
-      owner = await User.findOne({ where: { email: ownerEmail, role: 'owner' }, transaction });
-      if (!owner) { await transaction.rollback(); return res.status(422).json({ message: 'No store owner has that email address.' }); }
-      const anotherStore = await Store.findOne({ where: { ownerId: owner.id, id: { [Op.ne]: store.id } }, transaction });
-      if (anotherStore) { await transaction.rollback(); return res.status(409).json({ message: 'That owner is already linked to another store.' }); }
-    }
+    const owner = await User.findOne({ where: { id: store.ownerId, role: 'owner' }, transaction });
+    if (!owner) { await transaction.rollback(); return res.status(409).json({ message: 'This store is not linked to a store owner.' }); }
     store.name = req.body.name.trim();
-    store.email = req.body.email;
     store.address = req.body.address.trim();
-    store.ownerId = owner?.id || null;
     await store.save({ transaction });
-    if (owner) { owner.address = store.address; await owner.save({ transaction }); }
+    owner.address = store.address;
+    await owner.save({ transaction });
     await transaction.commit();
-    res.json({ store: { ...store.toJSON(), ownerName: owner?.name || null, ownerEmail: owner?.email || null } });
+    res.json({ store: { ...store.toJSON(), email: owner.email, ownerName: owner.name } });
   } catch (e) {
     if (transaction) await transaction.rollback().catch(() => {});
-    if (e.name === 'SequelizeUniqueConstraintError') return res.status(409).json({ message: 'That owner is already linked to another store.' });
     next(e);
   }
 });
@@ -346,13 +392,16 @@ app.delete('/api/admin/stores/:id', requireAuth, requireRole('admin'), async (re
     transaction = await sequelize.transaction();
     const store = await Store.findByPk(req.params.id, { transaction });
     if (!store) { await transaction.rollback(); return res.status(404).json({ message: 'Store not found.' }); }
-    const ratings = await Rating.findAll({ attributes: ['imagePath'], where: { storeId: store.id }, transaction });
+    const owner = await User.findOne({ where: { id: store.ownerId, role: 'owner' }, transaction });
+    if (!owner) { await transaction.rollback(); return res.status(409).json({ message: 'This store is not linked to a store owner.' }); }
+    const ratings = await Rating.findAll({ attributes: ['imagePath'], where: { [Op.or]: [{ storeId: store.id }, { userId: owner.id }] }, transaction });
     removedImages = ratings.map(rating => rating.imagePath).filter(Boolean);
-    await Rating.destroy({ where: { storeId: store.id }, transaction });
-    await store.destroy({ transaction });
+    await Rating.destroy({ where: { [Op.or]: [{ storeId: store.id }, { userId: owner.id }] }, transaction });
+    await revokeUserSessions(owner.id, transaction);
+    await owner.destroy({ transaction });
     await transaction.commit();
     await Promise.all(removedImages.map(removeStoredImage));
-    res.json({ message: 'Store and its ratings deleted.' });
+    res.json({ message: 'Store, owner account, and their ratings deleted.' });
   } catch (e) {
     if (transaction) await transaction.rollback().catch(() => {});
     next(e);
@@ -394,7 +443,7 @@ app.get('/api/owner/dashboard', requireAuth, requireRole('owner'), async (req, r
       where: { storeId: store.id }, raw: true
     });
     res.json({
-      store: { id: store.id, name: store.name },
+      store: { id: store.id, name: store.name, address: store.address },
       averageRating: Number(average?.averageRating || 0),
       ratings: result.rows.map(r => ({ id: r.id, name: r.user.name, email: r.user.email, score: Number(r.score), review: r.review || '', imagePath: r.imagePath || null, updatedAt: r.updated_at || r.created_at })),
       total: result.count, limit, offset
@@ -408,9 +457,44 @@ app.use((err, _req, res, _next) => {
   console.error(err); res.status(500).json({ message: 'Something went wrong. Please try again.' });
 });
 
+async function enforceStoreOwnerPairs() {
+  const [invalidStores] = await sequelize.query(
+    "SELECT s.id FROM stores s LEFT JOIN users u ON u.id = s.owner_id WHERE u.id IS NULL OR u.role <> 'owner'"
+  );
+  const [ownersWithoutStores] = await sequelize.query(
+    "SELECT u.id FROM users u LEFT JOIN stores s ON s.owner_id = u.id WHERE u.role = 'owner' AND s.id IS NULL"
+  );
+  if (invalidStores.length || ownersWithoutStores.length) {
+    throw new Error(`Store-owner links need repair first (${invalidStores.length} stores without a valid owner, ${ownersWithoutStores.length} owner accounts without a store).`);
+  }
+
+  const queryInterface = sequelize.getQueryInterface();
+  const columns = await queryInterface.describeTable('stores');
+  const [foreignKeys] = await sequelize.query(
+    "SELECT k.CONSTRAINT_NAME, r.DELETE_RULE FROM information_schema.KEY_COLUMN_USAGE k JOIN information_schema.REFERENTIAL_CONSTRAINTS r ON r.CONSTRAINT_SCHEMA = k.CONSTRAINT_SCHEMA AND r.CONSTRAINT_NAME = k.CONSTRAINT_NAME WHERE k.CONSTRAINT_SCHEMA = DATABASE() AND k.TABLE_NAME = 'stores' AND k.COLUMN_NAME = 'owner_id' AND k.REFERENCED_TABLE_NAME = 'users'"
+  );
+  const ownerForeignKey = foreignKeys[0];
+  if (columns.owner_id.allowNull || ownerForeignKey?.DELETE_RULE?.toUpperCase() !== 'CASCADE') {
+    for (const foreignKey of foreignKeys) await queryInterface.removeConstraint('stores', foreignKey.CONSTRAINT_NAME);
+    if (columns.owner_id.allowNull) {
+      await queryInterface.changeColumn('stores', 'owner_id', { type: DataTypes.BIGINT.UNSIGNED, allowNull: false });
+    }
+    await queryInterface.addConstraint('stores', {
+      fields: ['owner_id'],
+      type: 'foreign key',
+      name: 'fk_stores_owner',
+      references: { table: 'users', field: 'id' },
+      onDelete: 'CASCADE',
+      onUpdate: 'CASCADE'
+    });
+  }
+  if (columns.email) await queryInterface.removeColumn('stores', 'email');
+}
+
 async function start() {
   await sequelize.authenticate();
   await sequelize.sync();
+  await enforceStoreOwnerPairs();
   const queryInterface = sequelize.getQueryInterface();
   const ratingColumns = await queryInterface.describeTable('ratings');
   if (!ratingColumns.review) await queryInterface.addColumn('ratings', 'review', { type: DataTypes.TEXT, allowNull: true });

@@ -9,6 +9,8 @@ The frontend is a React app served by Vite. It contains the sign-in and registra
 - `/admin` shows platform totals. `/admin/users` and `/admin/stores` are for account and store management.
 - `/owner` shows the store owner's average rating and submitted reviews.
 
+Admins create a store owner and store together from **Users → Add user → Store Owner**. Store owners can edit their name, email, store name, and address from the profile menu; those updates appear in the admin and customer store listings. Deleting a store also removes its owner account and ratings so the owner/store pairing stays intact.
+
 The app redirects users to the page for their role. The API still checks each request's session and permissions; frontend routing is only for navigation.
 
 ## Run and build

@@ -61,6 +61,18 @@ function Shell() {
     try { await api('/auth/logout', { method: 'POST' }); } finally { setUser(null); navigate('/login'); }
   }
 
+  async function deleteOwnedStore() {
+    const confirmed = window.confirm('Delete your store and owner account? This permanently removes the store, ratings, and review photos. You will be signed out.');
+    if (!confirmed) return;
+    try {
+      await api('/owner/store', { method: 'DELETE' });
+      setUser(null);
+      navigate('/login');
+    } catch (error) {
+      window.alert(error.message);
+    }
+  }
+
   const navigation = user.role === 'admin'
     ? [['/admin', 'Overview'], ['/admin/stores', 'Stores'], ['/admin/users', 'Users']]
     : user.role === 'owner' ? [['/owner', 'Store dashboard']] : [['/stores', 'Stores']];
@@ -77,6 +89,7 @@ function Shell() {
           <details className="account-menu">
             <summary><svg className="account-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="3.5" /><path d="M5.5 20c.4-3.5 2.7-5.5 6.5-5.5s6.1 2 6.5 5.5" /></svg><span>{roleNames[user.role]}</span><svg className="account-chevron" viewBox="0 0 16 16" aria-hidden="true"><path d="m4 6 4 4 4-4" /></svg></summary>
             <div className="account-dropdown">
+              {user.role === 'owner' && <><button type="button" onClick={event => { event.currentTarget.closest('details').open = false; document.getElementById('owner-store-dialog')?.showModal(); }}>Edit store</button><button className="danger" type="button" onClick={event => { event.currentTarget.closest('details').open = false; deleteOwnedStore(); }}>Delete store</button></>}
               <button type="button" onClick={event => { event.currentTarget.closest('details').open = false; document.getElementById('password-dialog')?.showModal(); }}>Change password</button>
               <button type="button" onClick={logout}>Sign out</button>
             </div>
@@ -93,6 +106,7 @@ function Shell() {
         </Routes>
       </main>
       <PasswordDialog />
+      {user.role === 'owner' && <OwnerStoreDialog />}
     </div>
   );
 }
@@ -119,6 +133,46 @@ function PasswordDialog() {
         <label>New password<input name="password" type="password" minLength="8" maxLength="16" pattern="(?=.*[A-Z])(?=.*[^A-Za-z0-9]).{8,16}" required /><small>8–16 characters, with an uppercase letter and a special character.</small></label>
         {error && <p className="error">{error}</p>}{success && <p className="success">{success}</p>}
         <div className="dialog-actions"><button className="button save">Save password</button><button type="button" className="button secondary" onClick={() => document.getElementById('password-dialog').close()}>Cancel</button></div>
+      </form>
+    </dialog>
+  );
+}
+
+function OwnerStoreDialog() {
+  const { user, setUser } = useAuth();
+  const [store, setStore] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
+
+  useEffect(() => {
+    api('/owner/dashboard?limit=1')
+      .then(data => setStore(data.store))
+      .catch(err => setError(err.message))
+      .finally(() => setLoading(false));
+  }, []);
+
+  async function submit(event) {
+    event.preventDefault(); setError(''); setSuccess('');
+    const form = new FormData(event.currentTarget);
+    try {
+      const data = await api('/owner/profile', { method: 'PUT', body: JSON.stringify(Object.fromEntries(form.entries())) });
+      setUser(data.user); setStore(data.store); setSuccess('Store details updated. The changes are visible in store listings and admin pages.');
+    } catch (err) { setError(err.message); }
+  }
+
+  return (
+    <dialog id="owner-store-dialog" className="dialog owner-store-dialog">
+      <form onSubmit={submit}>
+        <div className="dialog-head"><h2>Edit store</h2><button type="button" className="close" onClick={() => document.getElementById('owner-store-dialog').close()}>Close</button></div>
+        {loading ? <p className="muted">Loading store details…</p> : <>
+          <label>Owner name<input name="name" defaultValue={user.name} minLength="1" maxLength="60" required /></label>
+          <label>Owner email<input name="email" type="email" autoComplete="email" defaultValue={user.email} required /><small>This email is used to sign in and appears on your store listing.</small></label>
+          <label>Store name<input name="storeName" defaultValue={store?.name || ''} minLength="20" maxLength="60" required /></label>
+          <label>Store address<textarea name="address" defaultValue={store?.address || ''} maxLength="400" required rows="3" /></label>
+        </>}
+        {error && <p className="error">{error}</p>}{success && <p className="success">{success}</p>}
+        <div className="dialog-actions"><button className="button save" disabled={loading || !store}>Save changes</button><button type="button" className="button secondary" onClick={() => document.getElementById('owner-store-dialog').close()}>Cancel</button></div>
       </form>
     </dialog>
   );
@@ -209,7 +263,7 @@ function AdminHome() {
   const changeFilter = (field, value) => setFilters(current => ({ ...current, [field]: value }));
 
   return <div className="content">
-    <PageHeading title="Overview" action={<Link className="button primary" to="/admin/stores">Add store</Link>} />
+    <PageHeading title="Overview" action={<Link className="button primary" to="/admin/users?new=owner">Add store owner</Link>} />
     {error && <p className="error">{error}</p>}
     <section className="stats-grid">
       <StatCard label="Users" value={stats?.users} />
@@ -343,15 +397,16 @@ function StoreReviewForm({ store, onSave }) {
 }
 
 function StoreTable({ stores, admin = false, filters, onFilter, sort, direction, onSort, onEdit, onDelete }) {
+  const hasActions = Boolean(onEdit || onDelete);
   return <div className="table-wrap"><table className="filterable-table"><thead><tr>
     <th><ColumnFilter label="Name" field="name" sort={sort} direction={direction} onSort={onSort} value={filters?.name || ''} onChange={onFilter ? value => onFilter('name', value) : undefined} /></th>
     {admin && <th><ColumnFilter label="Owner name" field="ownerName" sort={sort} direction={direction} onSort={onSort} value={filters?.ownerName || ''} onChange={onFilter ? value => onFilter('ownerName', value) : undefined} placeholder="Search owner" /></th>}
-    <th><ColumnFilter label="Email" field="email" sort={sort} direction={direction} onSort={onSort} value={filters?.email || ''} onChange={onFilter ? value => onFilter('email', value) : undefined} /></th>
+    <th><ColumnFilter label={admin ? 'Owner email' : 'Email'} field="email" sort={sort} direction={direction} onSort={onSort} value={filters?.email || ''} onChange={onFilter ? value => onFilter('email', value) : undefined} /></th>
     <th><ColumnFilter label="Address" field="address" sort={sort} direction={direction} onSort={onSort} value={filters?.address || ''} onChange={onFilter ? value => onFilter('address', value) : undefined} /></th>
     <th><ColumnFilter label="Rating" field="rating" sort={sort} direction={direction} onSort={onSort} value={filters?.minRating || ''} onChange={onFilter ? value => onFilter('minRating', value) : undefined} type="number" min="0" max="5" step="0.1" placeholder="Min" /></th>
-    {onEdit && <th>Actions</th>}
+    {hasActions && <th>Actions</th>}
   </tr></thead><tbody>
-    {stores?.length ? stores.map(store => <tr key={store.id}><td className="strong-cell">{store.name}</td>{admin && <td>{store.ownerName || '—'}</td>}<td>{store.email}</td><td>{store.address}</td><td><RatingStars value={store.averageRating} /></td>{onEdit && <td className="row-actions"><button className="icon-action edit-action" type="button" onClick={() => onEdit(store)} aria-label={`Edit ${store.name}`} title="Edit store"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13.5 5H6.8A2.8 2.8 0 0 0 4 7.8v9.4A2.8 2.8 0 0 0 6.8 20h9.4a2.8 2.8 0 0 0 2.8-2.8v-6.7" /><path d="m11 13 7.8-7.8a2.1 2.1 0 0 1 3 3L14 16l-4 1z" /></svg></button><button className="icon-action delete-action" type="button" onClick={() => onDelete(store)} aria-label={`Delete ${store.name}`} title="Delete store"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M9 7V4h6v3m3 0-1 13H7L6 7m3 4v6m6-6v6" /></svg></button></td>}</tr>) : <tr><td className="no-results" colSpan={admin ? onEdit ? 6 : 5 : 4}>No stores match these filters.</td></tr>}
+    {stores?.length ? stores.map(store => <tr key={store.id}><td className="strong-cell">{store.name}</td>{admin && <td>{store.ownerName || '—'}</td>}<td>{store.email}</td><td>{store.address}</td><td><RatingStars value={store.averageRating} /></td>{hasActions && <td className="row-actions">{onEdit && <button className="icon-action edit-action" type="button" onClick={() => onEdit(store)} aria-label={`Edit ${store.name}`} title="Edit store"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13.5 5H6.8A2.8 2.8 0 0 0 4 7.8v9.4A2.8 2.8 0 0 0 6.8 20h9.4a2.8 2.8 0 0 0 2.8-2.8v-6.7" /><path d="m11 13 7.8-7.8a2.1 2.1 0 0 1 3 3L14 16l-4 1z" /></svg></button>}{onDelete && <button className="icon-action delete-action" type="button" onClick={() => onDelete(store)} aria-label={`Delete ${store.name}`} title="Delete store"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M9 7V4h6v3m3 0-1 13H7L6 7m3 4v6m6-6v6" /></svg></button>}</td>}</tr>) : <tr><td className="no-results" colSpan={(admin ? 5 : 4) + (hasActions ? 1 : 0)}>No stores match these filters.</td></tr>}
   </tbody></table></div>;
 }
 
@@ -361,8 +416,6 @@ function AdminStores() {
   const [sortValue, setSortValue] = useState('name:asc');
   const [offset, setOffset] = useState(0);
   const [total, setTotal] = useState(0);
-  const [showForm, setShowForm] = useState(false);
-  const [editingStore, setEditingStore] = useState(null);
   const [error, setError] = useState('');
   const limit = 25;
   const [sort, direction] = sortValue.split(':');
@@ -376,26 +429,8 @@ function AdminStores() {
   }
   useEffect(() => { const timer = setTimeout(load, 140); return () => clearTimeout(timer); }, [filters, sortValue, offset]);
 
-  async function create(event) {
-    event.preventDefault(); setError('');
-    const form = event.currentTarget;
-    try {
-      await api('/admin/stores', { method: 'POST', body: JSON.stringify(Object.fromEntries(new FormData(form).entries())) });
-      setShowForm(false); form.reset();
-      if (offset !== 0) setOffset(0); else await load();
-    }
-    catch (err) { setError(err.message); }
-  }
-  async function updateStore(event) {
-    event.preventDefault(); setError('');
-    const form = event.currentTarget;
-    try {
-      await api(`/admin/stores/${editingStore.id}`, { method: 'PUT', body: JSON.stringify(Object.fromEntries(new FormData(form).entries())) });
-      setEditingStore(null); await load();
-    } catch (err) { setError(err.message); }
-  }
   async function deleteStore(store) {
-    const message = `Delete “${store.name}”? This also removes its ratings and review photos. The owner account will remain, but it will no longer have a store.`;
+    const message = `Delete “${store.name}” and its owner account? This also removes the store's ratings and review photos.`;
     if (!window.confirm(message)) return;
     setError('');
     try {
@@ -409,23 +444,17 @@ function AdminStores() {
 
   return (
     <div className="content">
-      <PageHeading title="Stores" action={<button className="button primary" onClick={() => setShowForm(true)}>Add store</button>} />
-      {error && <p className="error">{error}</p>}<StoreTable stores={stores} admin filters={filters} onFilter={updateFilter} sort={sort} direction={direction} onSort={changeSort} onEdit={setEditingStore} onDelete={deleteStore} />
+      <PageHeading title="Stores" />
+      {error && <p className="error">{error}</p>}<StoreTable stores={stores} admin filters={filters} onFilter={updateFilter} sort={sort} direction={direction} onSort={changeSort} onDelete={deleteStore} />
       <Pagination offset={offset} limit={limit} total={total} onChange={setOffset} />
-      {showForm && <Modal title="Add a store" close={() => setShowForm(false)}><form className="form-stack" onSubmit={create}><label>Store name<input name="name" minLength="20" maxLength="60" required /></label><label>Email<input name="email" type="email" required /></label><label>Address<textarea name="address" maxLength="400" required rows="3" /></label><label>Owner email <small>Optional. Create the owner account first.</small><input name="ownerEmail" type="email" /></label>{error && <p className="error">{error}</p>}<button className="button save">Save store</button></form></Modal>}
-      {editingStore && <Modal title="Edit store and owner" close={() => setEditingStore(null)}><form className="form-stack" onSubmit={updateStore}>
-        <label>Store name<input name="name" defaultValue={editingStore.name} minLength="20" maxLength="60" required /></label>
-        <label>Store email<input name="email" type="email" defaultValue={editingStore.email} required /></label>
-        <label>Store address<textarea name="address" defaultValue={editingStore.address} maxLength="400" required rows="3" /></label>
-        <label>Owner email <small>Leave blank to unlink this store.</small><input name="ownerEmail" type="email" defaultValue={editingStore.ownerEmail || ''} /></label>
-        {error && <p className="error">{error}</p>}<button className="button save">Save changes</button>
-      </form></Modal>}
     </div>
   );
 }
 
 function AdminUsers() {
   const { user: currentUser } = useAuth();
+  const location = useLocation();
+  const navigate = useNavigate();
   const [users, setUsers] = useState([]);
   const [filters, setFilters] = useState({ name: '', email: '', address: '', role: '', minRating: '' });
   const [sortValue, setSortValue] = useState('name:asc');
@@ -438,7 +467,14 @@ function AdminUsers() {
   const [error, setError] = useState('');
   const limit = 25;
   const [sort, direction] = sortValue.split(':');
+  const showUserActions = users.some(user => user.role !== 'user');
   const changeSort = field => { setSortValue(current => { const [active, order] = current.split(':'); return `${field}:${active === field && order === 'asc' ? 'desc' : 'asc'}`; }); setOffset(0); };
+
+  useEffect(() => {
+    if (new URLSearchParams(location.search).get('new') !== 'owner') return;
+    setNewUserRole('owner'); setShowOwnerStore(true); setShowForm(true);
+    navigate('/admin/users', { replace: true });
+  }, [location.search, navigate]);
 
   async function load() {
     const params = new URLSearchParams({ limit: String(limit), offset: String(offset), sort, direction });
@@ -492,8 +528,8 @@ function AdminUsers() {
         <th><ColumnFilter label="Address" field="address" sort={sort} direction={direction} onSort={changeSort} value={filters.address} onChange={value => updateFilter('address', value)} /></th>
         <th><ColumnFilter label="Role" field="role" sort={sort} direction={direction} onSort={changeSort} value={filters.role} onChange={value => updateFilter('role', value)} options={[{ value: '', label: 'All roles' }, { value: 'admin', label: 'Administrator' }, { value: 'user', label: 'Customer' }, { value: 'owner', label: 'Store owner' }]} /></th>
         <th><ColumnFilter label="Store rating" field="storeRating" sort={sort} direction={direction} onSort={changeSort} value={filters.minRating} onChange={value => updateFilter('minRating', value)} type="number" min="0" max="5" step="0.1" placeholder="Min" /></th>
-        <th>Actions</th>
-      </tr></thead><tbody>{users.map(user => <tr key={user.id}><td className="strong-cell">{user.name}</td><td>{user.email}</td><td>{user.address}</td><td>{roleNames[user.role]}</td><td><RatingStars value={user.role === 'owner' ? user.averageRating : 0} /></td><td className="row-actions"><button className="icon-action edit-action" type="button" onClick={() => setEditingUser(user)} aria-label={`Edit ${user.name}`} title="Edit user"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13.5 5H6.8A2.8 2.8 0 0 0 4 7.8v9.4A2.8 2.8 0 0 0 6.8 20h9.4a2.8 2.8 0 0 0 2.8-2.8v-6.7" /><path d="m11 13 7.8-7.8a2.1 2.1 0 0 1 3 3L14 16l-4 1z" /></svg></button><button className="icon-action delete-action" type="button" onClick={() => deleteUser(user)} disabled={String(user.id) === String(currentUser.id)} aria-label={`Delete ${user.name}`} title={String(user.id) === String(currentUser.id) ? 'You cannot delete the account you are using' : 'Delete user'}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M9 7V4h6v3m3 0-1 13H7L6 7m3 4v6m6-6v6" /></svg></button></td></tr>)}</tbody></table></div>
+        {showUserActions && <th>Actions</th>}
+      </tr></thead><tbody>{users.map(user => <tr key={user.id}><td className="strong-cell">{user.name}</td><td>{user.email}</td><td>{user.address}</td><td>{roleNames[user.role]}</td><td><RatingStars value={user.role === 'owner' ? user.averageRating : 0} /></td>{showUserActions && <td className="row-actions">{user.role === 'user' ? '—' : <><button className="icon-action edit-action" type="button" onClick={() => setEditingUser(user)} aria-label={`Edit ${user.name}`} title="Edit user"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13.5 5H6.8A2.8 2.8 0 0 0 4 7.8v9.4A2.8 2.8 0 0 0 6.8 20h9.4a2.8 2.8 0 0 0 2.8-2.8v-6.7" /><path d="m11 13 7.8-7.8a2.1 2.1 0 0 1 3 3L14 16l-4 1z" /></svg></button><button className="icon-action delete-action" type="button" onClick={() => deleteUser(user)} disabled={String(user.id) === String(currentUser.id)} aria-label={`Delete ${user.name}`} title={String(user.id) === String(currentUser.id) ? 'You cannot delete the account you are using' : 'Delete user'}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M9 7V4h6v3m3 0-1 13H7L6 7m3 4v6m6-6v6" /></svg></button></>}</td>}</tr>)}</tbody></table></div>
       <Pagination offset={offset} limit={limit} total={total} onChange={setOffset} />
       {showForm && <Modal title="Add a user" close={() => { setShowForm(false); setNewUserRole('user'); setShowOwnerStore(false); }}><form className="form-stack" onSubmit={create}>
         <label>Name<input name="name" minLength="1" maxLength="60" required /></label>
@@ -501,12 +537,12 @@ function AdminUsers() {
         {newUserRole !== 'owner' && <label>Address<textarea name="address" maxLength="400" required rows="2" /></label>}
         <label>Temporary password<PasswordInput name="password" minLength="8" maxLength="16" pattern="(?=.*[A-Z])(?=.*[^A-Za-z0-9]).{8,16}" autoComplete="new-password" required /><small>8–16 characters, with an uppercase letter and a special character.</small></label>
         <label>Role<select name="role" value={newUserRole} onChange={event => { setNewUserRole(event.target.value); setShowOwnerStore(false); }}><option value="user">Customer</option><option value="owner">Store owner</option><option value="admin">Administrator</option></select></label>
-        {newUserRole === 'owner' && <div className="owner-store-step"><button className="button secondary" type="button" onClick={() => setShowOwnerStore(value => !value)}>{showOwnerStore ? 'Remove store details' : 'Add store'}</button>{showOwnerStore && <><p className="muted">The owner’s email will also be used as the store email.</p><label>Store name<input name="storeName" minLength="20" maxLength="60" required /></label><label>Store address<textarea name="storeAddress" maxLength="400" required rows="2" /></label></>}</div>}
+        {newUserRole === 'owner' && <div className="owner-store-step"><button className="button secondary" type="button" onClick={() => setShowOwnerStore(value => !value)}>{showOwnerStore ? 'Remove store details' : 'Add store'}</button>{showOwnerStore && <><p className="muted">The owner's email is used for sign-in and shown on the store listing.</p><label>Store name<input name="storeName" minLength="20" maxLength="60" required /></label><label>Store address<textarea name="storeAddress" maxLength="400" required rows="2" /></label></>}</div>}
         {error && <p className="error">{error}</p>}<button className="button save">Create user</button>
       </form></Modal>}
       {editingUser && <Modal title={`Edit ${roleNames[editingUser.role].toLowerCase()}`} close={() => setEditingUser(null)}><form className="form-stack" onSubmit={updateUser}>
         <label>Name<input name="name" defaultValue={editingUser.name} minLength="1" maxLength="60" required /></label>
-        <label>Email<input name="email" type="email" defaultValue={editingUser.email} required /></label>
+        <label>{editingUser.role === 'owner' ? 'Owner email' : 'Email'}<input name="email" type="email" defaultValue={editingUser.email} required /></label>
         <label>Address<textarea name="address" defaultValue={editingUser.address} maxLength="400" required rows="2" /></label>
         <label>Role<input value={roleNames[editingUser.role]} readOnly /></label>
         {editingUser.role === 'owner' && <small>For store owners, changing the address also updates the linked store address.</small>}

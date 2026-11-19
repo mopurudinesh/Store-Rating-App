@@ -7,7 +7,7 @@ CREATE DATABASE IF NOT EXISTS store_rating
 
 USE store_rating;
 
--- One account table serves every role. Only store owners are linked to a store.
+-- One account table serves every role. Owner accounts are paired with one store.
 CREATE TABLE IF NOT EXISTS users (
   id            BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
   name          VARCHAR(60) NOT NULL,
@@ -25,21 +25,19 @@ CREATE TABLE IF NOT EXISTS users (
   INDEX idx_users_role (role)
 );
 
--- owner_id is nullable so a store can be registered before its owner account.
--- UNIQUE keeps one store attached to each store-owner account.
+-- Each store requires an owner, and each owner can have only one store.
 CREATE TABLE IF NOT EXISTS stores (
   id         BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
   name       VARCHAR(60) NOT NULL,
-  email      VARCHAR(254) NOT NULL,
   address    VARCHAR(400) NOT NULL,
-  owner_id   BIGINT UNSIGNED NULL,
+  owner_id   BIGINT UNSIGNED NOT NULL,
   created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
   CONSTRAINT pk_stores PRIMARY KEY (id),
   CONSTRAINT uq_stores_owner UNIQUE (owner_id),
   CONSTRAINT fk_stores_owner
     FOREIGN KEY (owner_id) REFERENCES users (id)
-    ON DELETE SET NULL,
+    ON DELETE CASCADE,
   INDEX idx_stores_name (name)
 );
 

@@ -27,14 +27,15 @@ export const registrationRules = [
   body('confirmPassword').custom((value, { req }) => value === req.body.password).withMessage('Passwords do not match.')
 ];
 
-export const storeRules = [
+export const storeUpdateRules = [
   body('name').trim().isLength({ min: 20, max: 60 }).withMessage('Store name must be between 20 and 60 characters.'),
-  body('email').trim().isEmail().withMessage('Enter a valid email address.').normalizeEmail(),
   body('address').trim().notEmpty().withMessage('Address is required.').bail().isLength({ max: 400 }).withMessage('Address must be 400 characters or fewer.')
 ];
-export const storeUpdateRules = [
-  ...storeRules,
-  body('ownerEmail').optional({ checkFalsy: true }).trim().isEmail().withMessage('Enter a valid owner email address.').normalizeEmail()
+export const ownerStoreUpdateRules = [
+  body('name').trim().isLength({ min: 1, max: 60 }).withMessage('Owner name must be 1–60 characters.'),
+  body('email').trim().isEmail().withMessage('Enter a valid email address.').normalizeEmail(),
+  body('storeName').trim().isLength({ min: 20, max: 60 }).withMessage('Store name must be between 20 and 60 characters.'),
+  body('address').trim().notEmpty().withMessage('Address is required.').bail().isLength({ max: 400 }).withMessage('Address must be 400 characters or fewer.')
 ];
 export const checkValidation = (req, res, next) => {
   const errors = validationResult(req);

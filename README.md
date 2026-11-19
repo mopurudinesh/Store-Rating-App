@@ -17,8 +17,8 @@ Rate Store is a web app for customers to find stores and submit ratings. It has 
 ### System Administrator
 
 - See totals for users, stores, and submitted ratings.
-- Add, edit, and delete users and stores. New user details include name, email, password, and address; admins can create customer or admin accounts.
-- Create a store owner and enter their store details in the same form.
+- Add, edit, and delete users and stores. Admins can create customer or admin accounts.
+- Create a store owner and their store together in one form. Each owner has exactly one store, and every store has exactly one owner.
 - View user name, email, address, role, and—when applicable—the owner's store rating.
 - View store name, owner name, email, address, and overall rating.
 - Filter users by name, email, address, and role; filter stores by their details and rating. Sort lists in ascending or descending order.
@@ -36,6 +36,8 @@ Public registration creates Normal User accounts only. The form asks for name, e
 ### Store Owner
 
 - Sign in, change password, and sign out.
+- Edit their name, email, store name, and store address. Changes appear in store listings and admin pages.
+- Delete their store. This also deletes the linked owner account, its ratings, and review photos.
 - See the average rating for their store.
 - View the users who rated the store and their submitted ratings and reviews.
 
@@ -45,7 +47,8 @@ Public registration creates Normal User accounts only. The form asks for name, e
 - Reviews can include a JPG, PNG, or WebP image up to 5 MB.
 - User, store, and rating tables support ascending and descending sorting. Admin lists can also be searched and filtered.
 - Role access is checked by the API as well as the frontend.
-- Admin-created store owner accounts are linked to their store. The owner's address is the store address.
+- The owner's email is the single email used to sign in and shown on the store listing. Owners can change it from their profile menu; the store listing updates with it.
+- A store cannot be unlinked from its owner. Deleting a store also deletes its owner account and store ratings; deleting an owner account also removes that owner's store.
 
 ## Form validation rules
 
@@ -118,8 +121,8 @@ All routes start with `/api`.
 
 - **Authentication:** `POST /auth/register`, `POST /auth/login`, `GET /auth/me`, `POST /auth/logout`, `PUT /auth/password`.
 - **Stores and ratings:** `GET /stores`, `PUT /stores/:id/rating` (submit or update a rating and review).
-- **Administrator:** `GET /admin/summary`; `GET` and `POST /admin/users`; `PUT` and `DELETE /admin/users/:id`; `GET` and `POST /admin/stores`; `PUT` and `DELETE /admin/stores/:id`.
-- **Store Owner:** `GET /owner/dashboard`.
+- **Administrator:** `GET /admin/summary`; `GET` and `POST /admin/users`; `PUT` and `DELETE /admin/users/:id`; `GET`, `PUT`, and `DELETE /admin/stores/:id`.
+- **Store Owner:** `GET /owner/dashboard`, `PUT /owner/profile`, `DELETE /owner/store`.
 - **Health check:** `GET /health`.
 
 See [frontend/README.md](frontend/README.md) for frontend details and [backend/README.md](backend/README.md) for the API and database structure.

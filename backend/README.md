@@ -9,11 +9,11 @@ In development, Vite forwards browser requests to Express. Express reads the ses
 The main tables are:
 
 - `users` — account details, password hash, and role (`admin`, `user`, or `owner`).
-- `stores` — store name, email, address, and optional owner.
+- `stores` — store name, address, and a required unique owner link. The owner's account email is used on the store listing and for sign-in.
 - `ratings` — one rating and review per customer for each store; image paths are optional.
 - `sessions` — sign-in sessions, managed by `connect-session-sequelize`.
 
-The store owner link is optional, and each owner can be linked to at most one store. Ratings use half-star steps from 0.5 to 5. See [`sql/schema.sql`](sql/schema.sql) for the schema.
+Each store must have one owner, and each owner must have one store. Admins create both together from the user form; the owner email is the only email for the pair and can be changed by the owner. Removing a store removes its owner account and ratings, while removing an owner account removes the linked store. Ratings use half-star steps from 0.5 to 5. See [`sql/schema.sql`](sql/schema.sql) for the schema.
 
 ## Run the API
 
@@ -42,8 +42,8 @@ All routes start with `/api`.
 
 - **Sign-in:** `POST /auth/register`, `POST /auth/login`, `GET /auth/me`, `POST /auth/logout`, `PUT /auth/password`.
 - **Stores and ratings:** `GET /stores`, `PUT /stores/:id/rating`.
-- **Admin:** `GET /admin/summary`; list or add users with `GET` and `POST /admin/users`, then edit or remove them with `PUT` and `DELETE /admin/users/:id`. Store routes follow the same pattern under `/admin/stores`.
-- **Owner:** `GET /owner/dashboard`.
+- **Admin:** `GET /admin/summary`; list or add users with `GET` and `POST /admin/users`, then edit or remove them with `PUT` and `DELETE /admin/users/:id`. List, edit, or delete stores with `GET /admin/stores` and `PUT` or `DELETE /admin/stores/:id`. Adding an owner account also creates their store.
+- **Owner:** `GET /owner/dashboard`, `PUT /owner/profile` to update owner and store details, `DELETE /owner/store` to remove the linked store and owner account.
 
 The API checks roles on protected routes. Public registration only creates customer accounts; admins add admin and owner accounts.
 
