@@ -1,52 +1,28 @@
 # Frontend
 
-The browser app is built with React, React Router, and Vite. It uses one authenticated session and shows the pages allowed for the signed-in role.
+The frontend is a React app served by Vite. It contains the sign-in and registration pages, the customer store list and review form, the admin pages, and the store owner dashboard.
 
 ## Pages
 
-| Path | Access | Purpose |
-| --- | --- | --- |
-| `/login` | Public | Sign in to an existing account |
-| `/register` | Public | Create a normal user account |
-| `/stores` | Normal user | Search stores and add or edit a rating and review |
-| `/admin` | Administrator | View platform totals |
-| `/admin/users` | Administrator | Find, sort, add, edit, or remove accounts |
-| `/admin/stores` | Administrator | Find, sort, add, edit, or remove stores |
-| `/owner` | Store owner | View the store average and submitted reviews |
+- `/login` and `/register` are available before signing in.
+- `/stores` is the customer store list and rating form.
+- `/admin` shows platform totals. `/admin/users` and `/admin/stores` are for account and store management.
+- `/owner` shows the store owner's average rating and submitted reviews.
 
-The client redirects between role-specific pages for a clear experience. The API independently checks authentication and roles, so hiding a page does not grant or replace server permissions.
+The app redirects users to the page for their role. The API still checks each request's session and permissions; frontend routing is only for navigation.
 
-## Source layout
+## Run and build
 
-```text
-frontend/
-├── index.html          # Browser entry document
-├── vite.config.js      # Development server and API/upload proxy
-└── src/
-    ├── main.jsx        # React and router entry point
-    ├── App.jsx         # Authentication, routes, pages, and UI components
-    ├── api.js          # Fetch wrapper with cookie credentials and errors
-    └── styles.css       # Shared layout and responsive styles
-```
+From the project root, `npm.cmd run install:all` installs dependencies and `npm.cmd run dev` starts both the website and API.
 
-## Local development
-
-Install all dependencies from the repository root with `npm.cmd run install:all`. Start the API and frontend together from the root with `npm.cmd run dev`.
-
-To start only the frontend, first start the API, then open PowerShell in this folder and run:
+To run only the frontend, start the API first, open a terminal in `frontend/`, and run:
 
 ```powershell
 npm.cmd run dev
 ```
 
-Vite serves the site at `http://localhost:5173`. Requests to `/api` and `/uploads` are forwarded to `http://127.0.0.1:4000`. If port 5173 is already in use, use the alternate address printed by Vite.
+Vite normally serves the website at `http://localhost:5173`. It forwards `/api` and `/uploads` requests to the backend at `http://127.0.0.1:4000`. If the port is already in use, use the URL Vite prints instead.
 
-## Production build
+To build the static frontend files, run `npm.cmd run build` from this folder. Vite writes the result to `dist/`; that folder is generated and is not committed. In macOS and Linux terminals, use `npm` instead of `npm.cmd`.
 
-From this folder, run:
-
-```powershell
-npm.cmd run build
-```
-
-Vite writes static output to `dist/`. That generated folder is ignored by Git. The API base can be set at build time with `VITE_API_URL`; in local development the Vite proxy is used by default.
+Most page and component code is in `src/App.jsx`. `src/api.js` sends requests with the session cookie, `src/main.jsx` starts React Router, and `src/styles.css` contains the app styles.
