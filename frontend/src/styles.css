@@ -28,8 +28,8 @@ button { color: inherit; }
   display: flex; flex-direction: column; padding: 24px 16px;
   background: var(--surface); border-right: 1px solid var(--line);
 }
-.brand { display: flex; align-items: center; gap: 10px; min-height: 36px; color: #193b78; font-size: 18px; font-weight: 750; letter-spacing: -.035em; }
-.brand-mark { display: block; width: 34px; height: 34px; flex: 0 0 34px; object-fit: contain; }
+.brand { display: flex; align-items: center; gap: 6px; min-height: 36px; color: #193b78; font-size: 18px; font-weight: 750; letter-spacing: -.035em; }
+.brand-mark { display: block; width: 36px; height: 36px; flex: 0 0 36px; object-fit: contain; }
 .nav-label { margin: 42px 10px 12px; color: #344258; font-size: 14px; font-weight: 700; letter-spacing: -.02em; }
 .sidebar nav { display: grid; gap: 4px; }
 .nav-link { padding: 9px 10px; border-radius: 4px; color: #46546a; font-size: 13px; }
@@ -173,7 +173,7 @@ td { padding: 11px 12px; border-top: 1px solid #e5eaf2; color: #4c5b72; vertical
 
 .auth-layout { min-height: 100vh; display: grid; place-items: center; padding: 24px; background: radial-gradient(ellipse at 50% 0%, #eaf1ff 0, #f5f8fd 52%, #f5f8fd 100%); }
 .auth-card { width: min(100%, 380px); padding: 28px; border: 1px solid var(--line); border-radius: 5px; background: var(--surface); }
-.auth-brand { margin-bottom: 30px; font-size: 21px; gap: 12px; }
+.auth-brand { margin-bottom: 30px; font-size: 21px; gap: 6px; }
 .auth-card h1 { font-size: 22px; }
 .auth-intro { margin: 7px 0 22px; color: var(--muted); font-size: 12px; line-height: 1.5; }
 .auth-switch { margin: 18px 0 0; color: var(--muted); font-size: 12px; text-align: center; }
