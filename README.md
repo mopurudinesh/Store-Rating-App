@@ -67,12 +67,7 @@ On a new database, the API creates the initial administrator the first time it s
 - **Email:** `storeappadmin@gmail.com`
 - **Password:** `Appadmin@123`
 
-For sample customer and store owner accounts, first run `npm.cmd run seed:samples` from the project folder. Their shared password is `Sample@123`:
-
-- **Normal User:** `sample.user01@example.test`
-- **Store Owner:** `sample.owner01@example.test`
-
-The sample accounts are only available after running the seed command. If the admin account already exists in the database, use its existing password.
+If the administrator account already exists in the database, use its existing password.
 
 ## Setup instructions
 

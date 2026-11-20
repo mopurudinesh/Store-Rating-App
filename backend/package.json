@@ -4,8 +4,7 @@
   "type": "module",
   "scripts": {
     "dev": "nodemon src/server.js",
-    "start": "node src/server.js",
-    "seed:samples": "node scripts/seed-samples.js"
+    "start": "node src/server.js"
   },
   "dependencies": {
     "bcrypt": "^5.1.1",

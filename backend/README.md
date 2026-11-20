@@ -46,7 +46,3 @@ All routes start with `/api`.
 - **Owner:** `GET /owner/dashboard`, `PUT /owner/profile` to update owner and store details, `DELETE /owner/store` to remove the linked store and owner account.
 
 The API checks roles on protected routes. Public registration only creates customer accounts; admins add admin and owner accounts.
-
-## Sample data
-
-Run `npm.cmd run seed:samples` from the project root to add 40 sample customers and 20 store owners with stores. They all use the password `Sample@123`. The script can be run again without duplicating the accounts.
