@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none">
+  <defs>
+    <linearGradient id="awning" x1="9" y1="7" x2="56" y2="30" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#285E9E"/>
+      <stop offset="1" stop-color="#123C73"/>
+    </linearGradient>
+    <radialGradient id="star" cx="0" cy="0" r="1" gradientTransform="matrix(0 18 -18 0 32 39)" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#FFF8D8"/>
+      <stop offset=".45" stop-color="#FFD56A"/>
+      <stop offset="1" stop-color="#F5A900"/>
+    </radialGradient>
+  </defs>
+  <path d="M12 8.5 31.8 5l20.3 3.5 7.2 9.1c1.5 1.9.1 4.7-2.3 4.7H7.2c-2.4 0-3.8-2.8-2.3-4.7L12 8.5Z" fill="url(#awning)"/>
+  <path d="M9 22h46v33H9V22Z" fill="#fff"/>
+  <path d="M9 22h5v28h36V22h5v33H9V22Z" fill="#123C73"/>
+  <path d="M22 7.2 18.5 22M42 7.2 45.5 22" stroke="#DDEBFA" stroke-width="1.7"/>
+  <path d="M32 27.3 35.4 35l7.7 3.5-7.7 3.4-3.4 7.8-3.5-7.8-7.7-3.4 7.7-3.5 3.5-7.7Z" fill="url(#star)"/>
+  <path d="m45.4 30.1 1.1 2.4 2.4 1.1-2.4 1.1-1.1 2.4-1.1-2.4-2.4-1.1 2.4-1.1 1.1-2.4ZM20.5 43.5l.9 2 2 .9-2 .9-.9 2-.9-2-2-.9 2-.9.9-2Z" fill="#F5A900"/>
+</svg>

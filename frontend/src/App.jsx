@@ -80,7 +80,7 @@ function Shell() {
   return (
     <div className="app-shell">
       <aside className="sidebar">
-        <Link className="brand" to={home}><span className="brand-star" aria-hidden="true">★</span><span>Rate Store</span></Link>
+        <Link className="brand" to={home}><img className="brand-mark" src="/storefront-star.svg" alt="" /><span>Rate Store</span></Link>
         <div className="nav-label">Menu</div>
         <nav>{navigation.map(([path, label]) => <NavLink key={path} className={({ isActive }) => `nav-link${isActive && location.pathname === path ? ' active' : ''}`} to={path}>{label}</NavLink>)}</nav>
       </aside>
@@ -196,7 +196,7 @@ function AuthPage({ register = false }) {
   return (
     <main className="auth-layout">
       <section className="auth-card">
-        <Link className="brand auth-brand" to="/login"><span className="brand-star" aria-hidden="true">★</span><span>Rate Store</span></Link>
+        <Link className="brand auth-brand" to="/login"><img className="brand-mark" src="/storefront-star.svg" alt="" /><span>Rate Store</span></Link>
         <h1>{register ? 'Create account' : 'Sign in'}</h1>
         <form onSubmit={submit} className="form-stack">
           {register && <label>Name<input name="name" minLength="1" maxLength="60" autoComplete="name" required /></label>}

@@ -29,7 +29,7 @@ button { color: inherit; }
   background: var(--surface); border-right: 1px solid var(--line);
 }
 .brand { display: flex; align-items: center; gap: 10px; min-height: 36px; color: #193b78; font-size: 18px; font-weight: 750; letter-spacing: -.035em; }
-.brand-star { display: grid; width: 30px; height: 30px; flex: 0 0 30px; place-items: center; border-radius: 9px; background: var(--accent); box-shadow: 0 4px 10px #2563eb30; color: #ffd84d; font-size: 18px; line-height: 1; }
+.brand-mark { display: block; width: 34px; height: 34px; flex: 0 0 34px; object-fit: contain; }
 .nav-label { margin: 42px 10px 12px; color: #344258; font-size: 14px; font-weight: 700; letter-spacing: -.02em; }
 .sidebar nav { display: grid; gap: 4px; }
 .nav-link { padding: 9px 10px; border-radius: 4px; color: #46546a; font-size: 13px; }
